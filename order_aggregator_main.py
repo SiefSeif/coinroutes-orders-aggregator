@@ -65,40 +65,43 @@ async def calculate_best_price(bidsQueue, asksQueue, qty: float):
 async def parse_orderbook(exchange_name, data, bidsQueue, asksQueue):
 
     if exchange_name == 'coinbase':
-        bids = data['bids']
-        asks = data['asks']
-        logging.info(f'{exchange_name} exchange has {len(bids)} bids and {len(asks)} asks')
-        
-        # Negate price to acheive descending queue for bids
-        for bid in bids:
-            await bidsQueue.put((-float(bid[0]), float(bid[1])))
-        for ask in asks:
-            await asksQueue.put((float(ask[0]), float(ask[1])))
+        try:
+            bids = data['bids']
+            asks = data['asks']
+            logging.info(f'{exchange_name} exchange has {len(bids)} bids and {len(asks)} asks')
+            
+            # Negate price to acheive descending queue for bids
+            for bid in bids:
+                await bidsQueue.put((-float(bid[0]), float(bid[1])))
+            for ask in asks:
+                await asksQueue.put((float(ask[0]), float(ask[1])))
+        except (ValueError, TypeError, IndexError) as e:
+                logging.warning(f'{exchange_name}: Invalid json data, error: {e}')
             
     elif exchange_name == 'gemini':
-        
-        bids = data['bids']
-        asks = data['asks']
-        logging.info(f'{exchange_name} exchange has {len(bids)} bids and {len(asks)} asks')
+        try:
+            bids = data['bids']
+            asks = data['asks']
+            logging.info(f'{exchange_name} exchange has {len(bids)} bids and {len(asks)} asks')
 
-        # Negate price to acheive descending queue for bids
-        for bid in bids:
-            await bidsQueue.put((-float(bid['price']), float(bid['amount'])))
-        for ask in asks:
-            await asksQueue.put((float(ask['price']), float(ask['amount'])))
-            
+            # Negate price to acheive descending queue for bids
+            for bid in bids:
+                await bidsQueue.put((-float(bid['price']), float(bid['amount'])))
+            for ask in asks:
+                await asksQueue.put((float(ask['price']), float(ask['amount'])))
+        except (ValueError, TypeError, IndexError) as e:
+            logging.warning(f'{exchange_name}: Invalid json data, error: {e}')
+        
     else: 
         logging.error(f'Exchange {exchange_name} not supported')
         
 ######################################################################
 
 async def nonblocking_rate_limiter(last_call_datetime):
-    logging.error(f'Extracting order book for {exchange_name} exchange failed, status code {response.status}')
-    # limit rate to 2 seconds before reattempt, without blocking
-    last_call_seconds = last_call_datetime.second + (last_call_datetime.microsecond / _MICRO_TO_SECONDS)
-    datetime_now = datetime.datetime.now()
-    current_seconds = datetime_now.second + (datetime_now.microsecond / _MICRO_TO_SECONDS)
-    await asyncio.sleep(float(_RATE_MIN_SECOND_WAIT - (current_seconds - last_call_seconds)))  
+    logging.info('Rate Limiter called')
+    # limit rate to 2 seconds, without blocking
+    time_remaining_to_next_call = (datetime.datetime.now() - last_call_datetime).total_seconds() # preserves microseconds
+    await asyncio.sleep(time_remaining_to_next_call) # waits 0 if passed negative
     
 ######################################################################
 
@@ -168,6 +171,15 @@ def main():
     parser.add_argument('--pr', '-p', type=int, default=2, help='Precision of calculation, default is 2')
     # future work --> parser.add_argument('--ccy', '-c', type=str, default='BTC', help='Currency, default is ''BTC''') 
     args = parser.parse_args()
+
+    if (args.qty < 0):
+        print('Quantity cannot be negative')
+        logging.error('Quantity cannot be negative')
+        return
+    if (args.pr < 0):
+        print('Precision cannot be negative, defaulting to 2')
+        logging.error('Precision cannot be negative, defaulting to 2')
+        args.pr = 2
 
     # Read exchanges from configurations 
     config = ConfigParser()
