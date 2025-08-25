@@ -2,7 +2,7 @@
 Order Book Aggregator for BTC-USD
 
 ## Setup & Run
-- Prerequisites: `python3.13`, `aiothttp` and an internat connection
+- Prerequisites: `python3.X`, `aiothttp` and an internat connection
 - Download and unzip repo
 - Run `/order_agreggator_main.py`
 - Specify BTC amount pass `--qty` or `-q`, default to 10

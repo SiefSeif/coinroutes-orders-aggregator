@@ -5,7 +5,6 @@ import datetime
 import logging 
 import aiohttp
 import asyncio
-from queue import PriorityQueue
 from configparser import ConfigParser
 
 # Constants
@@ -24,7 +23,7 @@ logFile.setLevel(logging.INFO)
 """
 Calculates the best price from the bids and asks queues
 """
-def calculate_best_price(bidsQueue, asksQueue, qty):
+async def calculate_best_price(bidsQueue, asksQueue, qty: float):
 
     logging.info('Calculating best price to sell ' + str(qty) + ' BTC')
 
@@ -38,7 +37,7 @@ def calculate_best_price(bidsQueue, asksQueue, qty):
         qtySum: float = 0.0
 
         while (qtySum < qty and not bidsQueue.empty()):
-            bid = bidsQueue.get_nowait()
+            bid = await bidsQueue.get()
             bidQty = bid[1]
             if (qtySum + bidQty) > qty: # take only part of the bid to fulfill qty
                 bidQty = qty - qtySum
@@ -52,7 +51,7 @@ def calculate_best_price(bidsQueue, asksQueue, qty):
         qtySum: float = 0.0
 
         while (qtySum < qty and not asksQueue.empty()):
-            ask = asksQueue.get_nowait()
+            ask = await asksQueue.get()
             askQty = ask[1]
             if (qtySum + askQty) > qty: # take only part of the ask to fulfill qty
                 askQty = qty - qtySum
@@ -72,9 +71,9 @@ async def parse_orderbook(exchange_name, data, bidsQueue, asksQueue):
         
         # Negate price to acheive descending queue for bids
         for bid in bids:
-            bidsQueue.put((-float(bid[0]), float(bid[1])))
+            await bidsQueue.put((-float(bid[0]), float(bid[1])))
         for ask in asks:
-            asksQueue.put((float(ask[0]), float(ask[1])))
+            await asksQueue.put((float(ask[0]), float(ask[1])))
             
     elif exchange_name == 'gemini':
         
@@ -84,13 +83,22 @@ async def parse_orderbook(exchange_name, data, bidsQueue, asksQueue):
 
         # Negate price to acheive descending queue for bids
         for bid in bids:
-            bidsQueue.put((-float(bid['price']), float(bid['amount'])))
+            await bidsQueue.put((-float(bid['price']), float(bid['amount'])))
         for ask in asks:
-            asksQueue.put((float(ask['price']), float(ask['amount'])))
+            await asksQueue.put((float(ask['price']), float(ask['amount'])))
             
     else: 
         logging.error(f'Exchange {exchange_name} not supported')
         
+######################################################################
+
+async def nonblocking_rate_limiter(last_call_datetime):
+    logging.error(f'Extracting order book for {exchange_name} exchange failed, status code {response.status}')
+    # limit rate to 2 seconds before reattempt, without blocking
+    last_call_seconds = last_call_datetime.second + (last_call_datetime.microsecond / _MICRO_TO_SECONDS)
+    datetime_now = datetime.datetime.now()
+    current_seconds = datetime_now.second + (datetime_now.microsecond / _MICRO_TO_SECONDS)
+    await asyncio.sleep(float(_RATE_MIN_SECOND_WAIT - (current_seconds - last_call_seconds)))  
     
 ######################################################################
 
@@ -111,14 +119,13 @@ async def extract_orderbook(exchange_name, exchange_url, max_retries,\
             data = await response.json()
             await parse_orderbook(exchange_name, data, bidsQueue, asksQueue)
             return
-        
-        except:
-            logging.error(f'Extracting order book for {exchange_name} exchange failed, status code {response.status}')
-            # limit rate to 2 seconds before reattempt, without blocking
-            last_call_seconds = last_call_datetime.second + (last_call_datetime.microsecond / _MICRO_TO_SECONDS)
-            datetime_now = datetime.datetime.now()
-            current_seconds = datetime_now.second + (datetime_now.microsecond / _MICRO_TO_SECONDS)
-            await asyncio.sleep(float(_RATE_MIN_SECOND_WAIT - (current_seconds - last_call_seconds)))  
+
+        except aiohttp.ClientError as e:
+            logging.error(f'HTTP Extracting order book for {exchange_name} exchange failed, {e}')
+            await nonblocking_rate_limiter(last_call_datetime)
+        except Exception as e:
+            logging.error(f'Unexpected error for {exchange_name}: {e}')
+            await nonblocking_rate_limiter(last_call_datetime)
     # end of for loop
     
     logging.warning(f'Failed to extract order book for {exchange_name}\
@@ -126,30 +133,30 @@ async def extract_orderbook(exchange_name, exchange_url, max_retries,\
 
 ######################################################################
 
-async def start_aggregator(exchanges, qty, precision):
+async def start_aggregator(exchanges, qty: float, precision: int):
 
     logging.info('Starting order book aggregator for ' + \
                  str(qty) + ' BTC, and precision: ' + str(precision))
 
-    bidsQueue = PriorityQueue()  # O(logN), For bids, highest price first
-    asksQueue = PriorityQueue()  # O(logN), For asks, lowest price first
+    bidsQueue = asyncio.PriorityQueue()  # O(logN), For bids, highest price first
+    asksQueue = asyncio.PriorityQueue()  # O(logN), For asks, lowest price first
 
     aggregatorTasks = []  
 
     async with aiohttp.ClientSession() as session:
 
+        # create a task per exchange
         for exchange_name, exchange_url, max_retries in exchanges:
             logging.info('Creating task for ' + exchange_name + ' exchange')
             aggregatorTasks.append(extract_orderbook(exchange_name, exchange_url, max_retries,\
                                                      session, bidsQueue, asksQueue))
-
+        # run tasks concurrently
         await asyncio.gather(*aggregatorTasks)
-        
-    [buyPriceSum, sellPriceSum] = calculate_best_price(bidsQueue, asksQueue, qty)
     
-    print(f'${buyPriceSum:,.{precision}f}')
-    print(f'${sellPriceSum:,.{precision}f}')
-
+    [buyPriceSum, sellPriceSum] = await calculate_best_price(bidsQueue, asksQueue, qty)
+    
+    print('To buy', str(qty),'BTC:', f'${buyPriceSum:,.{precision}f}')
+    print('To sell', str(qty), 'BTC:', f'${sellPriceSum:,.{precision}f}')
 
 ############################# main ##################################
 
@@ -167,7 +174,7 @@ def main():
     config.read('config.ini')
     exchanges = []
     for section in config.sections():
-        exchanges.append([config.get(section, 'NAME'),\
+        exchanges.append([section,\
                           config.get(section, 'URL'),\
                           int(config.get(section, 'MAX_CALLS'))])
 
