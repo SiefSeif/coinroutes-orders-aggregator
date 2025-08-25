@@ -16,7 +16,7 @@ Order Book Aggregator for BTC-USD
 
 
 ## Add more APIs
-1. Add api ***NAME***, ***URL*** and ***MAX_RTRY*** to `config.ini` file
+1. Add api ***NAME***, ***URL*** and ***MAX_CALLS*** to `config.ini` file
 2. Provide parser for API response into order_aggregator_main.py
 
 ## Assumptions 

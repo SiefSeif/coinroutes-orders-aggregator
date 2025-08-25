@@ -1,4 +1,4 @@
-#! /usr/bin/env python3.13
+#! /usr/bin/env python3
 
 import argparse
 import datetime
@@ -45,7 +45,7 @@ def calculate_best_price(bidsQueue, asksQueue, qty):
             qtySum += bidQty
             sellPriceSum += (-bid[0]) * bidQty  # Negate back to positive
 
-    # calculate beset buy price
+    # calculate best buy price
     if asksQueue.empty():
         logging.error('No asks to calculate best buy price')
     else:
@@ -145,10 +145,10 @@ async def start_aggregator(exchanges, qty, precision):
 
         await asyncio.gather(*aggregatorTasks)
         
-        [buyPriceSum, sellPriceSum] = calculate_best_price(bidsQueue, asksQueue, qty)
-        
-        print(f'${buyPriceSum:,.{precision}f}')
-        print(f'${sellPriceSum:,.{precision}f}')
+    [buyPriceSum, sellPriceSum] = calculate_best_price(bidsQueue, asksQueue, qty)
+    
+    print(f'${buyPriceSum:,.{precision}f}')
+    print(f'${sellPriceSum:,.{precision}f}')
 
 
 ############################# main ##################################
@@ -167,10 +167,9 @@ def main():
     config.read('config.ini')
     exchanges = []
     for section in config.sections():
-        exchange_name = config.items(section)[0][1]
-        exchange_url = config.items(section)[1][1]
-        max_retries = int(config.items(section)[2][1])
-        exchanges.append([exchange_name, exchange_url, max_retries])
+        exchanges.append([config.get(section, 'NAME'),\
+                          config.get(section, 'URL'),\
+                          int(config.get(section, 'MAX_CALLS'))])
 
     # run aggregator
     asyncio.run(start_aggregator(exchanges, args.qty, args.pr))
