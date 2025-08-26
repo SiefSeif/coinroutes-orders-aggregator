@@ -11,6 +11,7 @@ Order Book Aggregator for BTC-USD
 
 ## :scroll: Assumptions 
 - If BTC quantity in all Order Books couldn't fullfill quantity required, aggregator will return max quantity can be fullfilled from Order Books, with warning in logs.
+- All Order Books prices combined wouldn't overflow the summation stack. otherwise we need to put some quantity limitation to avoid wrong calculations.
 - If API call failed, retry assuming prices will be retrieved in the retrial are not expired.
 - Precision of price result is defaulted to 2 decimal points.
 - Fraction trading is allowed, i.e. aggregator can use $1 from order with amount $5 to fullfil $4 order, Brokers normally match orders partially.
