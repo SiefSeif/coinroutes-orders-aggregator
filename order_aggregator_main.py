@@ -29,13 +29,12 @@ async def calculate_best_price(bidsQueue, asksQueue, qty: float):
 
     sellPriceSum: float = 0.0
     buyPriceSum: float = 0.0
+    qtySum: float = 0.0
 
     # calculate best sell price
     if bidsQueue.empty():
         logging.error('No bids to calculate best sell price')
     else:
-        qtySum: float = 0.0
-
         while (qtySum < qty and not bidsQueue.empty()):
             bid = await bidsQueue.get()
             bidQty = bid[1]
@@ -44,12 +43,11 @@ async def calculate_best_price(bidsQueue, asksQueue, qty: float):
             qtySum += bidQty
             sellPriceSum += (-bid[0]) * bidQty  # Negate back to positive
 
+    qtySum = 0.0
     # calculate best buy price
     if asksQueue.empty():
         logging.error('No asks to calculate best buy price')
     else:
-        qtySum: float = 0.0
-
         while (qtySum < qty and not asksQueue.empty()):
             ask = await asksQueue.get()
             askQty = ask[1]
@@ -58,7 +56,11 @@ async def calculate_best_price(bidsQueue, asksQueue, qty: float):
             qtySum += askQty
             buyPriceSum += ask[0] * askQty
 
-    return [buyPriceSum, sellPriceSum]
+    if qtySum < qty:
+        logging.warning('Could not fulfill the full quantity of ' + str(qty) + \
+                        ', only ' + str(qtySum) + ' was fulfilled')
+        
+    return [buyPriceSum, sellPriceSum, qtySum]
 
 ######################################################################
 
@@ -156,10 +158,10 @@ async def start_aggregator(exchanges, qty: float, precision: int):
         # run tasks concurrently
         await asyncio.gather(*aggregatorTasks)
     
-    [buyPriceSum, sellPriceSum] = await calculate_best_price(bidsQueue, asksQueue, qty)
+    [buyPriceSum, sellPriceSum, fulffilledQty] = await calculate_best_price(bidsQueue, asksQueue, qty)
     
-    print('To buy', str(qty),'BTC:', f'${buyPriceSum:,.{precision}f}')
-    print('To sell', str(qty), 'BTC:', f'${sellPriceSum:,.{precision}f}')
+    print('To buy', str(fulffilledQty),'BTC:', f'${buyPriceSum:,.{precision}f}')
+    print('To sell', str(fulffilledQty), 'BTC:', f'${sellPriceSum:,.{precision}f}')
 
 ############################# main ##################################
 

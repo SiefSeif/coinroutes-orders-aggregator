@@ -7,12 +7,13 @@ Order Book Aggregator for BTC-USD
 - Run `/order_agreggator_main.py`
 - Specify BTC amount pass `--qty` or `-q`, default to 10
 - Specify calculation precision pass `--pr` or `-p`, default to 2
+- logging can be found in order_aggregator.YYYYMMDD.log
 
 ## :scroll: Assumptions 
+- If BTC quantity in all Order Books couldn't fullfill quantity required, aggregator will return max quantity can be fullfilled from Order Books, with warning in logs.
 - If API call failed, retry assuming prices will be retrieved in the retrial are not expired.
+- Precision of price result is defaulted to 2 decimal points.
 - Fraction trading is allowed, i.e. aggregator can use $1 from order with amount $5 to fullfil $4 order, Brokers normally match orders partially.
-- Precision is defaulted to 2 decimal points.
-- 
 
 ## :currency_exchange: Exchanges Supported
 #### Coinbase ([Documentation](https://docs.cdp.coinbase.com/api-reference/exchange-api/rest-api/products/get-product-book))
