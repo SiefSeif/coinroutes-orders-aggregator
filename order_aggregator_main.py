@@ -9,7 +9,7 @@ from configparser import ConfigParser
 
 # Constants
 _MICRO_TO_SECONDS = 1000000
-_RATE_MIN_SECOND_WAIT = 2
+_RATE_MIN_SECOND_WAIT: float = 2.0
 
 # setup logs
 logging.basicConfig(
@@ -64,6 +64,10 @@ async def calculate_best_price(bidsQueue, asksQueue, qty: float):
 
 ######################################################################
 
+"""
+For passed exchange name, parse data into bid and ask prices with their amount
+and put it into bids and asks queues
+"""
 async def parse_orderbook(exchange_name, data, bidsQueue, asksQueue):
 
     if exchange_name == 'coinbase':
@@ -99,14 +103,20 @@ async def parse_orderbook(exchange_name, data, bidsQueue, asksQueue):
         
 ######################################################################
 
+"""
+non blocking rate limiter, to limit rate of calls to 1 call per _RATE_MIN_SECOND_WAIT seconds
+"""
 async def nonblocking_rate_limiter(last_call_datetime):
     logging.info('Rate Limiter called')
     # limit rate to 2 seconds, without blocking
-    time_remaining_to_next_call = (datetime.datetime.now() - last_call_datetime).total_seconds() # preserves microseconds
-    await asyncio.sleep(time_remaining_to_next_call) # waits 0 if passed negative
+    seconds_since_last_call = (datetime.datetime.now() - last_call_datetime).total_seconds() # preserves microseconds
+    await asyncio.sleep(_RATE_MIN_SECOND_WAIT - seconds_since_last_call) # waits 0 if passed negative
     
 ######################################################################
 
+"""
+For each exchange, extract order book and parse it into bids and asks queues
+"""
 async def extract_orderbook(exchange_name, exchange_url, max_retries,\
                             session, bidsQueue, asksQueue):
     
@@ -138,6 +148,9 @@ async def extract_orderbook(exchange_name, exchange_url, max_retries,\
 
 ######################################################################
 
+"""
+Aggregator starting point, creates tasks for each exchange and runs them concurrently
+"""
 async def start_aggregator(exchanges, qty: float, precision: int):
 
     logging.info('Starting order book aggregator for ' + \
