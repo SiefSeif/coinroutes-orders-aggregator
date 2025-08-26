@@ -122,10 +122,13 @@ async def extract_orderbook(exchange_name, exchange_url, max_retries,\
     
     logging.info(f'Extracting order book for {exchange_name} exchange')
 
+    last_call_datetime = datetime.datetime.now() - datetime.timedelta(seconds=_RATE_MIN_SECOND_WAIT)
+
     for i in range(max_retries): 
         
+        await nonblocking_rate_limiter(last_call_datetime)
         last_call_datetime = datetime.datetime.now()
-        
+
         try: 
             response = await session.get(exchange_url)
             response.raise_for_status()
@@ -137,10 +140,9 @@ async def extract_orderbook(exchange_name, exchange_url, max_retries,\
 
         except aiohttp.ClientError as e:
             logging.error(f'HTTP Extracting order book for {exchange_name} exchange failed, {e}')
-            await nonblocking_rate_limiter(last_call_datetime)
         except Exception as e:
             logging.error(f'Unexpected error for {exchange_name}: {e}')
-            await nonblocking_rate_limiter(last_call_datetime)
+        
     # end of for loop
     
     logging.warning(f'Failed to extract order book for {exchange_name}\
