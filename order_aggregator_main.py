@@ -8,7 +8,6 @@ import asyncio
 from configparser import ConfigParser
 
 # Constants
-_MICRO_TO_SECONDS = 1000000
 _RATE_MIN_SECOND_WAIT: float = 2.0
 
 # setup logs
@@ -17,8 +16,6 @@ logging.basicConfig(
             format='%(asctime)s - %(levelname)s - %(funcName)s - %(message)s',
             filename='order_aggregator.'+ str(datetime.datetime.now().strftime('%Y%m%d') + '.log'))
 logFile = logging.getLogger(__name__)
-logFile.setLevel(logging.INFO)
-
 
 """
 Calculates the best price from the bids and asks queues
