@@ -2,7 +2,7 @@
 Order Book Aggregator for BTC-USD
 
 ## :gear: Setup and Run
-- Prerequisites: `python3.X`, `aiothttp` and an internat connection
+- Prerequisites: `python`, `aiothttp` and an internat connection
 - Download and unzip repo
 - Run `/order_agreggator_main.py`
 - Specify BTC amount pass `--qty` or `-q`, default to 10
@@ -10,11 +10,14 @@ Order Book Aggregator for BTC-USD
 - logging can be found in order_aggregator.YYYYMMDD.log
 
 ## :scroll: Assumptions 
-- If BTC quantity in all Order Books couldn't fullfill quantity required, aggregator will return max quantity can be fullfilled from Order Books, with warning in logs.
+- calculated prices are rounded to the default or given precision, not truncated.
+- If order books have insufficient liquidity to fullfill quantity required, aggregator will return max quantity can be fullfilled from Order Books, with warning in logs.
 - All Order Books prices combined wouldn't overflow the summation stack. otherwise we need to put some quantity limitation to avoid wrong calculations.
 - If API call failed, retry assuming prices will be retrieved in the retrial are not expired.
 - Precision of price result is defaulted to 2 decimal points.
-- Fraction trading is allowed, i.e. aggregator can use $1 from order with amount $5 to fullfil $4 order, Brokers normally match orders partially.
+- If an exchange failed to be retrieved, continue with other available exchanges.
+- Machine have enough memory to support loading all order books in memory.
+- Partial trading is allowed, i.e. aggregator can use $1 from order with amount $5 to fullfil $4 order, Brokers normally match orders partially.
 
 ## :currency_exchange: Exchanges Supported
 #### Coinbase ([Documentation](https://docs.cdp.coinbase.com/api-reference/exchange-api/rest-api/products/get-product-book))
