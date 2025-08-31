@@ -23,35 +23,40 @@ class TestOrderAggregator(unittest.TestCase):
             
             return await calculate_best_price(bidsQueue, asksQueue, qty)
         
-        buyPriceSum, sellPriceSum, fullfilledQty = asyncio.run(run_test(10))
+        buyPriceSum, sellPriceSum, fullfilledBuyQty, fullfilledSellQty = asyncio.run(run_test(10))
         self.assertEqual(buyPriceSum, 1123037.9337469237)
         self.assertEqual(sellPriceSum, 1166268.3396848512)
-        self.assertEqual(fullfilledQty, 10)
+        self.assertEqual(fullfilledBuyQty, 10)
+        self.assertEqual(fullfilledSellQty, 10)
         
-        buyPriceSum, sellPriceSum, fullfilledQty = asyncio.run(run_test(10.4134134))
+        buyPriceSum, sellPriceSum, fullfilledBuyQty, fullfilledSellQty = asyncio.run(run_test(10.4134134))
         self.assertEqual(buyPriceSum, 1169471.146218901)
         self.assertEqual(sellPriceSum, 1214431.2322963553)
-        self.assertEqual(fullfilledQty, 10.4134134)
+        self.assertEqual(fullfilledBuyQty, 10.4134134)
         
-        buyPriceSum, sellPriceSum, fullfilledQty = asyncio.run(run_test(0))
+        buyPriceSum, sellPriceSum, fullfilledBuyQty, fullfilledSellQty = asyncio.run(run_test(0))
         self.assertEqual(buyPriceSum, 0)
         self.assertEqual(sellPriceSum, 0)
-        self.assertEqual(fullfilledQty, 0)
+        self.assertEqual(fullfilledBuyQty, 0)
+        self.assertEqual(fullfilledSellQty, 0)
         
-        buyPriceSum, sellPriceSum, fullfilledQty = asyncio.run(run_test(1034))
+        buyPriceSum, sellPriceSum, fullfilledBuyQty, fullfilledSellQty = asyncio.run(run_test(1034))
         self.assertEqual(buyPriceSum, 122826653.90282701)
         self.assertEqual(sellPriceSum, 113680903.10074314)
-        self.assertEqual(fullfilledQty, 1034)
+        self.assertEqual(fullfilledBuyQty, 1034)
+        self.assertEqual(fullfilledSellQty, 1034)
         
-        buyPriceSum, sellPriceSum, fullfilledQty = asyncio.run(run_test(100000000))
+        buyPriceSum, sellPriceSum, fullfilledBuyQty, fullfilledSellQty = asyncio.run(run_test(100000000))
         self.assertEqual(buyPriceSum, 976451608.7003479)
         self.assertEqual(sellPriceSum, 241575771.51915255)
-        self.assertEqual(fullfilledQty, 4696.4381711000315) # max was fullfilled
+        self.assertEqual(fullfilledBuyQty, 4696.4381711000315) # max was fullfilled
+        self.assertEqual(fullfilledSellQty, 5261428.54352406)
         
-        buyPriceSum, sellPriceSum, fullfilledQty = asyncio.run(run_test(-1))
+        buyPriceSum, sellPriceSum, fullfilledBuyQty, fullfilledSellQty = asyncio.run(run_test(-1))
         self.assertEqual(buyPriceSum, 0)
         self.assertEqual(sellPriceSum, 0)
-        self.assertEqual(fullfilledQty, 0)
+        self.assertEqual(fullfilledBuyQty, 0)
+        self.assertEqual(fullfilledSellQty, 0)
         
         
 if __name__ == "__main__":

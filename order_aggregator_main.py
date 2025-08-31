@@ -40,6 +40,7 @@ async def calculate_best_price(bidsQueue, asksQueue, qty: float):
             qtySum += bidQty
             sellPriceSum += (-bid[0]) * bidQty  # Negate back to positive
 
+    fullfilledSellQty = qtySum 
     qtySum = 0.0
     # calculate best buy price
     if asksQueue.empty():
@@ -57,7 +58,7 @@ async def calculate_best_price(bidsQueue, asksQueue, qty: float):
         logging.warning('Could not fulfill the full quantity of ' + str(qty) + \
                         ', only ' + str(qtySum) + ' was fulfilled')
         
-    return [buyPriceSum, sellPriceSum, qtySum]
+    return [buyPriceSum, sellPriceSum, qtySum, fullfilledSellQty]
 
 ######################################################################
 
@@ -78,7 +79,7 @@ async def parse_orderbook(exchange_name, data, bidsQueue, asksQueue):
                 await bidsQueue.put((-float(bid[0]), float(bid[1])))
             for ask in asks:
                 await asksQueue.put((float(ask[0]), float(ask[1])))
-        except (ValueError, TypeError, IndexError) as e:
+        except (ValueError, TypeError, IndexError, KeyError) as e:
                 logging.warning(f'{exchange_name}: Invalid json data, error: {e}')
             
     elif exchange_name == 'gemini':
@@ -92,7 +93,7 @@ async def parse_orderbook(exchange_name, data, bidsQueue, asksQueue):
                 await bidsQueue.put((-float(bid['price']), float(bid['amount'])))
             for ask in asks:
                 await asksQueue.put((float(ask['price']), float(ask['amount'])))
-        except (ValueError, TypeError, IndexError) as e:
+        except (ValueError, TypeError, IndexError, KeyError) as e:
             logging.warning(f'{exchange_name}: Invalid json data, error: {e}')
         
     else: 
@@ -170,10 +171,10 @@ async def start_aggregator(exchanges, qty: float, precision: int):
         # run tasks concurrently
         await asyncio.gather(*aggregatorTasks)
     
-    [buyPriceSum, sellPriceSum, fulffilledQty] = await calculate_best_price(bidsQueue, asksQueue, qty)
+    [buyPriceSum, sellPriceSum, fulffilledBuyQty, fullfilledSellQty] = await calculate_best_price(bidsQueue, asksQueue, qty)
     
-    print('To buy', str(fulffilledQty),'BTC:', f'${buyPriceSum:,.{precision}f}')
-    print('To sell', str(fulffilledQty), 'BTC:', f'${sellPriceSum:,.{precision}f}')
+    print('To buy', str(fulffilledBuyQty),'BTC:', f'${buyPriceSum:,.{precision}f}')
+    print('To sell', str(fullfilledSellQty), 'BTC:', f'${sellPriceSum:,.{precision}f}')
 
 ############################# main ##################################
 
