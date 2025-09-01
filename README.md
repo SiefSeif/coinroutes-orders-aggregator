@@ -40,8 +40,7 @@ A bid or ask has the following format
 3. Calculate best bid/ask using queue
 
 ## :heavy_plus_sign: Add more APIs
-1. Add api ***[apiname]***, ***URL*** and ***MAX_CALLS*** to `config.ini` file
-2. Provide parser for API response into order_aggregator_main.py
+- Add exchange to `config.ini` file with the proper settings format
 
 ## :open_book: References
 - [aiohttp](https://docs.aiohttp.org/en/stable/client_reference.html)

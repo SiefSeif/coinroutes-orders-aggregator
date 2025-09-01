@@ -9,6 +9,7 @@ from configparser import ConfigParser
 
 # Constants
 _RATE_MIN_SECOND_WAIT: float = 2.0
+config = ConfigParser()
 
 # setup logs
 logging.basicConfig(
@@ -40,7 +41,6 @@ async def calculate_best_price(bidsQueue, asksQueue, qty: float):
             qtySum += bidQty
             sellPriceSum += (-bid[0]) * bidQty  # Negate back to positive
 
-    fullfilledSellQty = qtySum 
     qtySum = 0.0
     # calculate best buy price
     if asksQueue.empty():
@@ -58,7 +58,7 @@ async def calculate_best_price(bidsQueue, asksQueue, qty: float):
         logging.warning('Could not fulfill the full quantity of ' + str(qty) + \
                         ', only ' + str(qtySum) + ' was fulfilled')
         
-    return [buyPriceSum, sellPriceSum, qtySum, fullfilledSellQty]
+    return [buyPriceSum, sellPriceSum, qtySum]
 
 ######################################################################
 
@@ -66,39 +66,33 @@ async def calculate_best_price(bidsQueue, asksQueue, qty: float):
 For passed exchange name, parse data into bid and ask prices with their amount
 and put it into bids and asks queues
 """
-async def parse_orderbook(exchange_name, data, bidsQueue, asksQueue):
+async def parse_orderbook(bids_path, asks_path, price_field : any,\
+                          amount_field : any, exchange_name, data, bidsQueue, asksQueue):
 
-    if exchange_name == 'coinbase':
-        try:
-            bids = data['bids']
-            asks = data['asks']
-            logging.info(f'{exchange_name} exchange has {len(bids)} bids and {len(asks)} asks')
-            
-            # Negate price to acheive descending queue for bids
-            for bid in bids:
-                await bidsQueue.put((-float(bid[0]), float(bid[1])))
-            for ask in asks:
-                await asksQueue.put((float(ask[0]), float(ask[1])))
-        except (ValueError, TypeError, IndexError, KeyError) as e:
-                logging.warning(f'{exchange_name}: Invalid json data, error: {e}')
-            
-    elif exchange_name == 'gemini':
-        try:
-            bids = data['bids']
-            asks = data['asks']
-            logging.info(f'{exchange_name} exchange has {len(bids)} bids and {len(asks)} asks')
+    bids_fields_list = bids_path.split('.')
+    asks_fields_list = asks_path.split('.')
 
-            # Negate price to acheive descending queue for bids
-            for bid in bids:
-                await bidsQueue.put((-float(bid['price']), float(bid['amount'])))
-            for ask in asks:
-                await asksQueue.put((float(ask['price']), float(ask['amount'])))
-        except (ValueError, TypeError, IndexError, KeyError) as e:
+    bids = data
+    for field in bids_fields_list:
+        bids = bids[field]
+
+    try:
+        # Negate price to acheive descending queue for bids
+        for bid in bids:
+            await bidsQueue.put((-float(bid[price_field]), float(bid[amount_field])))    
+
+        asks = data
+        for field in asks_fields_list:
+            asks = asks[field]
+
+        for ask in asks:
+            await asksQueue.put((float(ask[price_field]), float(ask[amount_field])))
+
+    except (ValueError, TypeError, IndexError, KeyError) as e:
             logging.warning(f'{exchange_name}: Invalid json data, error: {e}')
-        
-    else: 
-        logging.error(f'Exchange {exchange_name} not supported')
-        
+            
+    logging.info(f'{exchange_name} exchange has {len(bids)} bids and {len(asks)} asks')
+            
 ######################################################################
 
 """
@@ -115,8 +109,9 @@ async def nonblocking_rate_limiter(last_call_datetime):
 """
 For each exchange, extract order book and parse it into bids and asks queues
 """
-async def extract_orderbook(exchange_name, exchange_url, max_retries,\
-                            session, bidsQueue, asksQueue):
+async def extract_orderbook(is_array, bids_path, asks_path, price_field,\
+                            amount_field, exchange_url, max_retries,\
+                            session, bidsQueue, asksQueue, exchange_name):
     
     logging.info(f'Extracting order book for {exchange_name} exchange')
 
@@ -133,7 +128,8 @@ async def extract_orderbook(exchange_name, exchange_url, max_retries,\
             logging.info(f'Order book for {exchange_name} exchange succefully '\
                           'extracted on the ' + str(i+1) + 'th attempt')
             data = await response.json()
-            await parse_orderbook(exchange_name, data, bidsQueue, asksQueue)
+            await parse_orderbook(bids_path, asks_path, price_field, amount_field, \
+                                  exchange_name, data, bidsQueue, asksQueue)
             return
 
         except aiohttp.ClientError as e:
@@ -163,18 +159,36 @@ async def start_aggregator(exchanges, qty: float, precision: int):
 
     async with aiohttp.ClientSession() as session:
 
-        # create a task per exchange
-        for exchange_name, exchange_url, max_retries in exchanges:
-            logging.info('Creating task for ' + exchange_name + ' exchange')
-            aggregatorTasks.append(extract_orderbook(exchange_name, exchange_url, max_retries,\
-                                                     session, bidsQueue, asksQueue))
+        for exchange in exchanges:
+            is_array : bool = True if config.get(exchange, 'is_array') == 'true' else False
+            bids_path : str = config.get(exchange, 'bids_path')
+            asks_path : str = config.get(exchange, 'asks_path')
+            max_retries     = int(config.get(exchange, 'MAX_CALLS'))
+            url             = config.get(exchange, 'URL')
+                    
+            if bool(is_array): 
+                price_field = int(config.get(exchange, 'price_field'))
+            else:
+                price_field = config.get(exchange, 'price_field')
+            
+            if is_array:
+                amount_field = int(config.get(exchange, 'amount_field'))
+            else:
+                amount_field = config.get(exchange, 'amount_field')
+
+            logging.info('Creating task for ' + exchange + ' exchange')
+            aggregatorTasks.append(extract_orderbook(is_array, bids_path, asks_path, price_field,\
+                                                     amount_field, url, max_retries,\
+                                                     session, bidsQueue, asksQueue, exchange))
+            
+
         # run tasks concurrently
         await asyncio.gather(*aggregatorTasks)
     
-    [buyPriceSum, sellPriceSum, fulffilledBuyQty, fullfilledSellQty] = await calculate_best_price(bidsQueue, asksQueue, qty)
+    [buyPriceSum, sellPriceSum, fulffilledQty] = await calculate_best_price(bidsQueue, asksQueue, qty)
     
-    print('To buy', str(fulffilledBuyQty),'BTC:', f'${buyPriceSum:,.{precision}f}')
-    print('To sell', str(fullfilledSellQty), 'BTC:', f'${sellPriceSum:,.{precision}f}')
+    print('To buy', str(fulffilledQty),'BTC:', f'${buyPriceSum:,.{precision}f}')
+    print('To sell', str(fulffilledQty), 'BTC:', f'${sellPriceSum:,.{precision}f}')
 
 ############################# main ##################################
 
@@ -197,7 +211,7 @@ def main():
         args.pr = 2
 
     # Read exchanges from configurations 
-    config = ConfigParser()
+    
     config.read('config.ini')
     exchanges = []
     for section in config.sections():
@@ -206,9 +220,8 @@ def main():
                           int(config.get(section, 'MAX_CALLS'))])
 
     # run aggregator
-    asyncio.run(start_aggregator(exchanges, args.qty, args.pr))
+    asyncio.run(start_aggregator(config.sections(), args.qty, args.pr))
 
 
 if __name__ == "__main__":
     main()
-
