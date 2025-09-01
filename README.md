@@ -1,5 +1,5 @@
 # :books: Coinroutes Order Book Aggregator
-Order Book Aggregator for BTC-USD
+Order Book Aggregator for BTC-USD, supporting 36+ exchanges
 
 ## :gear: Setup and Run
 - Prerequisites: `python`, `aiothttp` and an internat connection
@@ -19,20 +19,6 @@ Order Book Aggregator for BTC-USD
 - Machine have enough memory to support loading all order books in memory.
 - Partial trading is allowed, i.e. aggregator can use $1 from order with amount $5 to fullfil $4 order, Brokers normally match orders partially.
 
-## :currency_exchange: Exchanges Supported
-#### Coinbase ([Documentation](https://docs.cdp.coinbase.com/api-reference/exchange-api/rest-api/products/get-product-book))
-A bid or ask has the following format `[price, size, num-orders]`, e.g. `[ "112285.27",  "0.0000274", 1]`, 
---> [URL](https://api.exchange.coinbase.com/products/BTC-USD/book?level=2)
-
-
-#### Gemini ([Documentation](https://docs.gemini.com/rest/market-data#get-current-order-book))
-A bid or ask has the following format 
-`{
-    "price": "116728.77",
-    "amount": "0.00089935",
-    "timestamp": "1755878881"
-}` --> [URL](https://api.gemini.com/v1/book/BTCUSD)
-
 ## :arrows_clockwise: Workflow
 1. Creates coroutine task for each API in `config.ini`
 2. Run tasks concurrently.
@@ -42,14 +28,9 @@ A bid or ask has the following format
 ## :heavy_plus_sign: Add more APIs
 - Add exchange to `config.ini` file with the proper settings format
 
-## :open_book: References
-- [aiohttp](https://docs.aiohttp.org/en/stable/client_reference.html)
-- [Gemini API](https://docs.gemini.com/rest/market-data#get-current-order-book)
-- [Coinbase API](https://docs.cdp.coinbase.com/api-reference/exchange-api/rest-api/products/get-product-book)
-
 ## :hourglass_flowing_sand: Future Work
 - Support more currencies
 - Support streaming trading
-- Support more exchanges
+
 
 
