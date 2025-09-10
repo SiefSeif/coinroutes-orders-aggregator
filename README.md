@@ -1,4 +1,4 @@
-# :books: Coinroutes Order Book Aggregator
+# :books: Cryptocurrency Order Book Aggregator
 Order Book Aggregator for BTC-USD, supporting 36+ exchanges
 
 ## :gear: Setup and Run
